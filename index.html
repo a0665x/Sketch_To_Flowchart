@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FlowSketch Visualizer</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  </head>
+  <body>
+    <div class="bg">
+      <div class="orb orb-a"></div>
+      <div class="orb orb-b"></div>
+      <div class="grid"></div>
+    </div>
+
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <div class="brand-title">FlowSketch</div>
+            <div class="brand-sub">hand-drawn flow to Mermaid</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Mode</div>
+          <label class="radio">
+            <input type="radio" name="mode" value="gemini" checked />
+            Gemini API
+          </label>
+          <label class="radio">
+            <input type="radio" name="mode" value="webhook" />
+            Webhook
+          </label>
+          <label class="radio">
+            <input type="radio" name="mode" value="groq" />
+            Groq API
+          </label>
+          <label class="radio">
+            <input type="radio" name="mode" value="openai" />
+            OpenAI API
+          </label>
+          <label class="radio">
+            <input type="radio" name="mode" value="ollama" />
+            Ollama (local)
+          </label>
+        </div>
+
+        <div class="panel" id="geminiPanel">
+          <div class="panel-title">Gemini Settings</div>
+          <label class="field">
+            <span>API Key</span>
+            <input id="geminiKey" type="password" placeholder="AIza..." autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Model</span>
+            <input id="geminiModel" list="geminiModelList" placeholder="gemini-2.5-flash" />
+            <datalist id="geminiModelList">
+              <option value="gemini-2.5-flash"></option>
+              <option value="gemini-2.5-pro"></option>
+              <option value="gemini-1.5-flash-002"></option>
+              <option value="gemini-1.5-pro-002"></option>
+            </datalist>
+          </label>
+          <div class="row">
+            <button class="ghost" id="fetchModels">Fetch models</button>
+            <button class="ghost" id="useBasicModels">Use basic models</button>
+          </div>
+          <div class="hint" id="modelStatus">Model list ready.</div>
+          <label class="field">
+            <span>Constraints / prompt</span>
+            <textarea id="promptInput" rows="5"></textarea>
+          </label>
+          <label class="check">
+            <input id="complexMode" type="checkbox" checked />
+            Multi-stage pipeline (analyze -> draft -> validate)
+          </label>
+          <label class="check">
+            <input id="finalCheck" type="checkbox" checked />
+            Final Mermaid check (fix syntax)
+          </label>
+          <button class="ghost" id="resetPrompt">Reset prompt</button>
+        </div>
+
+        <div class="panel hidden" id="webhookPanel">
+          <div class="panel-title">Webhook Settings</div>
+          <label class="field">
+            <span>Webhook URL</span>
+            <input id="webhookUrl" type="url" placeholder="http://localhost:5678/webhook/flow" />
+          </label>
+          <label class="field">
+            <span>Headers (JSON)</span>
+            <textarea id="webhookHeaders" rows="4" placeholder='{"Authorization":"Bearer ..."}'></textarea>
+          </label>
+          <div class="hint">
+            Expect JSON response with <code>mermaid</code>, <code>diagram</code>, or <code>text</code>.
+          </div>
+        </div>
+
+        <div class="panel hidden" id="groqPanel">
+          <div class="panel-title">Groq Settings</div>
+          <label class="field">
+            <span>API Key</span>
+            <input id="groqKey" type="password" placeholder="gsk_..." autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Model</span>
+            <input id="groqModel" list="groqModelList" placeholder="llama-3.3-70b-versatile" />
+            <datalist id="groqModelList">
+              <option value="llama-3.3-70b-versatile"></option>
+              <option value="llama-3.1-70b-versatile"></option>
+              <option value="llama-3.1-8b-instant"></option>
+              <option value="mixtral-8x7b-32768"></option>
+              <option value="gemma2-9b-it"></option>
+            </datalist>
+          </label>
+          <div class="row">
+            <button class="ghost" id="useGroqModels">Use Groq defaults</button>
+          </div>
+          <div class="hint">
+            Groq chat models are text-only. Enable OCR Assist to extract labels.
+          </div>
+        </div>
+
+        <div class="panel hidden" id="openaiPanel">
+          <div class="panel-title">OpenAI Settings</div>
+          <label class="field">
+            <span>API Key</span>
+            <input id="openaiKey" type="password" placeholder="sk-..." autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Model</span>
+            <input id="openaiModel" list="openaiModelList" placeholder="gpt-4o-mini" />
+            <datalist id="openaiModelList"></datalist>
+          </label>
+          <div class="hint">
+            Use a vision-capable model (e.g. gpt-4o-mini) to accept images directly.
+          </div>
+        </div>
+
+        <div class="panel hidden" id="ollamaPanel">
+          <div class="panel-title">Ollama Settings</div>
+          <label class="field">
+            <span>Base URL</span>
+            <input id="ollamaUrl" type="url" placeholder="http://localhost:11434" />
+          </label>
+          <label class="field">
+            <span>Model</span>
+            <select id="ollamaModelSelect" size="6"></select>
+            <input id="ollamaModel" type="text" placeholder="Type a model name if not listed" />
+          </label>
+          <div class="row">
+            <button class="ghost" id="fetchOllamaModels">Fetch models</button>
+          </div>
+          <div class="hint">
+            Scroll the list to pick a model, or type a custom one below. Vision-capable models can use images;
+            otherwise enable OCR Assist for text. Default URL uses the local proxy at
+            <code>http://localhost:8001/ollama</code>.
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">OCR Assist (optional)</div>
+          <label class="check">
+            <input id="ocrEnabled" type="checkbox" />
+            Enable OCR webhook
+          </label>
+          <label class="field">
+            <span>OCR Webhook URL</span>
+            <input id="ocrUrl" type="url" placeholder="http://localhost:8001/ocr" />
+          </label>
+          <label class="field">
+            <span>OCR Headers (JSON)</span>
+            <textarea id="ocrHeaders" rows="3" placeholder='{\"Authorization\":\"Bearer ...\"}'></textarea>
+          </label>
+          <div class="row">
+            <button class="ghost" id="useLocalOcr">Use local EasyOCR</button>
+            <button class="ghost" id="refreshOcr">Refresh OCR</button>
+          </div>
+          <div class="ocr-tuning">
+            <div class="ocr-tuning-title">Line detection (Hough)</div>
+            <label class="field slider">
+              <span>Canny low <strong id="houghCannyLowValue">50</strong></span>
+              <input id="houghCannyLow" type="range" min="0" max="200" value="50" />
+            </label>
+            <label class="field slider">
+              <span>Canny high <strong id="houghCannyHighValue">150</strong></span>
+              <input id="houghCannyHigh" type="range" min="0" max="300" value="150" />
+            </label>
+            <label class="field slider">
+              <span>Hough threshold <strong id="houghThresholdValue">60</strong></span>
+              <input id="houghThreshold" type="range" min="1" max="200" value="60" />
+            </label>
+            <label class="field slider">
+              <span>Min line length <strong id="houghMinLengthValue">30</strong></span>
+              <input id="houghMinLength" type="range" min="0" max="200" value="30" />
+            </label>
+            <label class="field slider">
+              <span>Max line gap <strong id="houghMaxGapValue">8</strong></span>
+              <input id="houghMaxGap" type="range" min="0" max="100" value="8" />
+            </label>
+            <label class="field slider">
+              <span>Max lines <strong id="houghMaxLinesValue">80</strong></span>
+              <input id="houghMaxLines" type="range" min="10" max="300" value="80" />
+            </label>
+          </div>
+          <div class="hint">
+            Expected OCR response: blocks with text/bounding boxes and optional line segments.
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Diagram Options</div>
+          <label class="field">
+            <span>Diagram type</span>
+            <select id="diagramType">
+              <option value="auto">Auto-detect</option>
+              <option value="flowchart">Flowchart</option>
+              <option value="swimlane">Swimlane</option>
+              <option value="sequence">Sequence</option>
+              <option value="state">State</option>
+              <option value="tree">Tree</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Actions</div>
+          <div class="stack">
+            <button class="primary" id="convertBtn">Convert sketch</button>
+            <button class="ghost" id="renderBtn">Render Mermaid</button>
+            <button class="ghost" id="sampleBtn">Load sample</button>
+            <button class="ghost" id="clearBtn">Clear</button>
+          </div>
+        </div>
+
+        <div class="panel status" id="statusPanel">Idle</div>
+
+        <div class="panel">
+          <div class="panel-title">Webhook Payload</div>
+          <pre id="payloadPreview" class="code"></pre>
+        </div>
+      </aside>
+
+      <main class="main">
+        <section class="card upload">
+          <div class="card-header">
+            <div>
+              <h1>Sketch intake</h1>
+              <p>Upload a hand-drawn flowchart image. The Mermaid output is editable.</p>
+            </div>
+            <div class="badge" id="fileBadge">No file</div>
+          </div>
+
+          <div class="dropzone" id="dropzone">
+            <input id="uploadInput" type="file" accept="image/*" />
+            <div>
+              <div class="drop-title">Drag & drop or click to upload</div>
+              <div class="drop-sub">PNG, JPG, WEBP recommended</div>
+            </div>
+          </div>
+          <div class="preview" id="imagePreview">
+            <div class="preview-placeholder">No preview yet</div>
+          </div>
+          <div class="hint">Drag the bottom edge of the preview to resize.</div>
+          <div class="ocr-editor" id="ocrEditor">
+            <div class="ocr-editor-header">
+              <div>
+                <h3>OCR nodes & edges</h3>
+                <p>Pick a node or edge to edit, or click lines to toggle.</p>
+              </div>
+              <button class="ghost" id="applyOcrEdits">Apply human adjust</button>
+            </div>
+            <div class="ocr-editor-body">
+              <div class="ocr-panel">
+                <div class="ocr-panel-title">Node editor</div>
+                <label class="field">
+                  <span>Select node</span>
+                  <select id="ocrNodeSelect"></select>
+                </label>
+                <div class="ocr-node-edit hidden" id="ocrNodeEdit">
+                  <label class="field">
+                    <span>Rename</span>
+                    <input id="ocrNodeRename" type="text" placeholder="Node label" />
+                  </label>
+                  <label class="check compact">
+                    <input id="ocrNodeActive" type="checkbox" checked />
+                    Include node
+                  </label>
+                </div>
+              </div>
+              <div class="ocr-panel">
+                <div class="ocr-panel-title">Edge inspector</div>
+                <label class="field">
+                  <span>Select edge</span>
+                  <select id="ocrEdgeSelect"></select>
+                </label>
+                <div class="row">
+                  <button class="ghost mini" id="removeEdgeBtn">Delete edge</button>
+                </div>
+                <div class="hint">Selected edge is highlighted in the sketch preview.</div>
+              </div>
+            </div>
+            <div class="ocr-edge-actions">
+              <select id="edgeFromSelect"></select>
+              <span class="edge-arrow">-&gt;</span>
+              <select id="edgeToSelect"></select>
+              <button class="ghost" id="addEdgeBtn">Add edge</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="output">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2>Mermaid flow</h2>
+                <p>Edit and re-render to refine the diagram.</p>
+              </div>
+              <label class="toggle">
+                <input id="autoRender" type="checkbox" checked />
+                Auto render
+              </label>
+            </div>
+            <textarea id="mermaidText" class="editor" rows="14" placeholder="Mermaid code appears here..."></textarea>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2>Diagram preview</h2>
+                <p>Mermaid is rendered locally in the browser.</p>
+              </div>
+            </div>
+            <div id="diagramPreview" class="diagram"></div>
+          </div>
+        </section>
+
+        <section class="card log-card">
+          <div class="card-header">
+            <div>
+              <h2>Pipeline log</h2>
+              <p>Stage-by-stage status updates.</p>
+            </div>
+            <button class="ghost" id="clearLog">Clear log</button>
+          </div>
+          <div id="logPanel" class="log"></div>
+          <div class="log-divider"></div>
+          <div class="card-header">
+            <div>
+              <h2>Container log</h2>
+              <p>Live output from the Docker container.</p>
+            </div>
+            <button class="ghost" id="clearContainerLog">Clear</button>
+          </div>
+          <div id="containerLogPanel" class="log log-small log-plain"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js?v=7"></script>
+  </body>
+</html>
