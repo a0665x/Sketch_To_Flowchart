@@ -7,6 +7,16 @@ I built a lightweight web UI that turns a hand-drawn flowchart into Mermaid flow
 - Ollama (local, 11434)
 - Custom webhook (for n8n or any local workflow)
 
+## Preview
+
+![Cover](diagram.png)
+
+## Demo
+
+<video src="demo.webm" controls muted loop playsinline></video>
+
+If the video does not render on GitHub, open it directly: [demo.webm](demo.webm)
+
 ## Run locally
 
 I recommend using a local web server to avoid CORS/file restrictions:
